@@ -147,6 +147,38 @@ out_unlock:
 }
 #endif
 
+struct unlink_info{
+    struct super_block *sb;
+    unsigned long ino;
+};
+
+void sdcardfs_d_prune_aliases(struct super_block *sb, void *raw_info)
+{
+        struct unlink_info *info = (struct unlink_info *) raw_info;
+
+        if ((sb != info->sb) && (sdcardfs_lower_super(sb) == sdcardfs_lower_super(info->sb))) {
+            struct inode *unlink_inode = ilookup(sb, info->ino);
+
+            if (unlink_inode) {
+                d_prune_aliases(unlink_inode);
+                iput(unlink_inode);
+            }
+        }
+}
+
+void sdcardfs_free_space(struct unlink_info *info)
+{
+    struct file_system_type *sdcardfs_type = NULL;
+
+    sdcardfs_type = get_fs_type("sdcardfs");
+    if (sdcardfs_type) {
+        iterate_supers_type(sdcardfs_type, sdcardfs_d_prune_aliases, (void *) info);
+        put_filesystem(sdcardfs_type);
+    }
+}
+
+#define UNLINK_SIZE (31457280)  /* (1024*1024*30) */
+
 static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 {
 	int err;
@@ -155,6 +187,8 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 	struct dentry *lower_dir_dentry;
 	struct path lower_path;
 	const struct cred *saved_cred = NULL;
+     struct kstat stat;
+     struct unlink_info info;
 
 	if(!check_caller_access_to_name(dir, dentry->d_name.name)) {
 		printk(KERN_INFO "%s: need to check the caller's gid in packages.list\n" 
@@ -163,6 +197,10 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 		err = -EACCES;
 		goto out_eacces;
 	}
+
+    generic_fillattr(dentry->d_inode, &stat);
+    info.sb = dir->i_sb;
+    info.ino = stat.ino;
 
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred);
@@ -194,6 +232,9 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 		  sdcardfs_lower_inode(dentry->d_inode)->i_nlink);
 	dentry->d_inode->i_ctime = dir->i_ctime;
 	d_drop(dentry); /* this is needed, else LTP fails (VFS won't do it) */
+     if (stat.size >= UNLINK_SIZE)
+         sdcardfs_free_space(&info);
+
 out:
 	mnt_drop_write(lower_path.mnt);
 out_unlock:
