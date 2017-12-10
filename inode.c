@@ -844,6 +844,8 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	return 0;
 }
 
+#define TIMES_SET_FLAGS	(ATTR_MTIME_SET | ATTR_ATIME_SET | ATTR_TIMES_SET)
+
 static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 {
 	int err = 0;
@@ -853,6 +855,8 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	struct path lower_path;
 	struct iattr lower_ia;
 	struct dentry *parent;
+	unsigned int ia_valid;
+	const struct cred *saved_cred = NULL;
 
 	inode = dentry->d_inode;
 
@@ -861,7 +865,10 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	 * this user can change the lower inode: that should happen when
 	 * calling notify_change on the lower inode.
 	 */
+	ia_valid = ia->ia_valid;
+	ia->ia_valid &= ~TIMES_SET_FLAGS;
 	err = inode_change_ok(inode, ia);
+	ia->ia_valid = ia_valid;
 
 	/* no vfs_XXX operations required, cred overriding will be skipped. wj*/
 	if (!err) {
@@ -878,6 +885,8 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 
 	if (err)
 		goto out_err;
+
+	OVERRIDE_CRED(SDCARDFS_SB(dentry->d_sb), saved_cred);
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -948,6 +957,7 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 
 out:
 	sdcardfs_put_lower_path(dentry, &lower_path);
+	REVERT_CRED(saved_cred);
 out_err:
 	return err;
 }
