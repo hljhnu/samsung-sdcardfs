@@ -559,8 +559,8 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			if(old_dentry->d_inode) {
 				get_derived_permission(new_parent, old_dentry);
 				fix_derived_permission(old_dentry->d_inode);
-				fixup_perms_recursive(new_parent);
-				fixup_perms_recursive(new_dentry);
+//				fixup_perms_recursive(new_parent);
+//				fixup_perms_recursive(new_dentry);
 				fixup_perms_recursive(old_dentry);
 			}
 			dput(new_parent);
