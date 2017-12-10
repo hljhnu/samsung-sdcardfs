@@ -559,6 +559,9 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			if(old_dentry->d_inode) {
 				get_derived_permission(new_parent, old_dentry);
 				fix_derived_permission(old_dentry->d_inode);
+				fixup_perms_recursive(new_parent);
+				fixup_perms_recursive(new_dentry);
+				fixup_perms_recursive(old_dentry);
 			}
 			dput(new_parent);
 		}
@@ -579,6 +582,7 @@ out_eacces:
 	return err;
 }
 
+#if 0
 /*
  * The locking rules in sdcardfs_rename are complex.  We could use a simpler
  * superblock-level name-space lock for renames and copy-ups.
@@ -689,6 +693,7 @@ out:
 out_eacces:
 	return err;
 }
+#endif
 
 #if 0
 static int sdcardfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
@@ -973,7 +978,7 @@ const struct inode_operations sdcardfs_dir_iops = {
 	.mkdir		= sdcardfs_mkdir,
 	.rmdir		= sdcardfs_rmdir,
     .rename     = sdcardfs_rename,
-	.rename2	= sdcardfs_rename2,
+//	.rename2	= sdcardfs_rename2,
 	.setattr	= sdcardfs_setattr,
 	.getattr	= sdcardfs_getattr,
 #ifdef SDCARD_FS_XATTR

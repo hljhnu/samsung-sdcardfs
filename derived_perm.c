@@ -218,6 +218,25 @@ void fix_derived_permission(struct inode *inode) {
 	inode->i_mode = ((inode->i_mode & S_IFMT) | filtered_mode); 
 }
 
+void fixup_perms_recursive(struct dentry *parent) {
+	struct dentry *dentry;
+	struct sdcardfs_inode_info *info;
+
+	if (!parent->d_inode)
+		return;
+	info = SDCARDFS_I(parent->d_inode);
+	spin_lock(&parent->d_lock);
+	list_for_each_entry(dentry, &parent->d_subdirs, d_child) {
+		if (dentry->d_inode) {
+				get_derived_permission(parent, dentry);
+				fixup_tmp_permissions(dentry->d_inode);
+				fixup_perms_recursive(dentry);
+		}
+	}
+	spin_unlock(&parent->d_lock);
+}
+
+
 /* main function for updating derived permission */
 inline void update_derived_permission(struct dentry *dentry)
 {

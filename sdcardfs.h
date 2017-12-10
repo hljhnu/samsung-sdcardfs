@@ -72,6 +72,20 @@
 #define AID_PACKAGE_INFO  1027
 #define AID_EVERYBODY     9997
 
+/*
+ * Permissions are handled by our permission function.
+ * We don't want anyone who happens to look at our inode value to prematurely
+ * block access, so store more permissive values. These are probably never
+ * used.
+ */
+#define fixup_tmp_permissions(x)    \
+    do {                        \
+        (x)->i_uid = make_kuid(&init_user_ns, SDCARDFS_I(x)->d_uid);    \
+        (x)->i_gid = make_kgid(&init_user_ns, AID_SDCARD_RW);   \
+        (x)->i_mode = ((x)->i_mode & S_IFMT) | 0775;\
+    } while (0)
+
+
 /* OVERRIDE_CRED() and REVERT_CRED() 
  * 	OVERRID_CRED() 
  * 		backup original task->cred
@@ -437,6 +451,7 @@ extern void setup_derived_state(struct inode *inode, perm_t perm,
 extern void get_derived_permission(struct dentry *parent, struct dentry *dentry);
 extern void fix_derived_permission(struct inode *inode);
 extern void update_derived_permission(struct dentry *dentry);
+extern void fixup_perms_recursive(struct dentry *parent);
 extern int need_graft_path(struct dentry *dentry);
 extern int is_base_obbpath(struct dentry *dentry);
 extern int is_obbpath_invalid(struct dentry *dentry);
